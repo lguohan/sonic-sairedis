@@ -251,7 +251,7 @@ void test_bulk_next_hop_group_member_create()
     std::vector<sai_status_t> statuses(count);
     std::vector<sai_object_id_t> object_id(count);
     sai_bulk_create_next_hop_group_members(switch_id, count, nhgm_attrs_count.data(), nhgm_attrs_array.data()
-        , SAI_BULK_OP_TYPE_INGORE_ERROR, object_id.data(), statuses.data());
+        , SAI_BULK_OP_ERROR_MODE_IGNORE_ERROR, object_id.data(), statuses.data());
     ASSERT_SUCCESS("Failed to bulk create nhgm");
     for (size_t j = 0; j < statuses.size(); j++)
     {
@@ -271,7 +271,7 @@ void test_bulk_next_hop_group_member_create()
         assert(created_attrs[1].value.oid == nhgm_attrs[i][1].value.oid);
     }
 
-    status = sai_bulk_remove_next_hop_group_members(count, object_id.data(), SAI_BULK_OP_TYPE_INGORE_ERROR, statuses.data());
+    status = sai_bulk_remove_next_hop_group_members(count, object_id.data(), SAI_BULK_OP_ERROR_MODE_IGNORE_ERROR, statuses.data());
     ASSERT_SUCCESS("Failed to bulk remove nhgm");
 }
 
@@ -331,13 +331,18 @@ void test_bulk_fdb_create()
         std::string bridge_port_key = sai_serialize_object_meta_key(meta_key_bridge_port);
         ObjectAttrHash[bridge_port_key] = { };
 
+        // bridge
+        sai_object_id_t bridge = create_dummy_object_id(SAI_OBJECT_TYPE_BRIDGE);
+        object_reference_insert(bridge);
+        sai_object_meta_key_t meta_key_bridge = { .objecttype = SAI_OBJECT_TYPE_BRIDGE, .objectkey = { .key = { .object_id = bridge } } };
+        std::string bridge_key = sai_serialize_object_meta_key(meta_key_bridge);
+        ObjectAttrHash[bridge_key] = { };
+
         sai_fdb_entry_t fdb_entry;
         fdb_entry.switch_id = switch_id;
         memset(fdb_entry.mac_address, 0, sizeof(sai_mac_t));
         fdb_entry.mac_address[0] = 0xD;
-        fdb_entry.bridge_type = SAI_FDB_ENTRY_BRIDGE_TYPE_1Q;
-        fdb_entry.vlan_id = (unsigned short)(1011 + i);
-        fdb_entry.bridge_id = SAI_NULL_OBJECT_ID;
+        fdb_entry.bv_id = bridge;
 
         fdbs.push_back(fdb_entry);
 
@@ -367,7 +372,7 @@ void test_bulk_fdb_create()
 
     std::vector<sai_status_t> statuses(count);
     status = sai_bulk_create_fdb_entry(count, fdbs.data(), fdb_attrs_count.data(), fdb_attrs_array.data()
-        , SAI_BULK_OP_TYPE_INGORE_ERROR, statuses.data());
+        , SAI_BULK_OP_ERROR_MODE_IGNORE_ERROR, statuses.data());
     ASSERT_SUCCESS("Failed to create fdb");
     for (size_t j = 0; j < statuses.size(); j++)
     {
@@ -376,7 +381,7 @@ void test_bulk_fdb_create()
     }
 
     // Remove route entry
-    status = sai_bulk_remove_fdb_entry(count, fdbs.data(), SAI_BULK_OP_TYPE_INGORE_ERROR, statuses.data());
+    status = sai_bulk_remove_fdb_entry(count, fdbs.data(), SAI_BULK_OP_ERROR_MODE_IGNORE_ERROR, statuses.data());
     ASSERT_SUCCESS("Failed to bulk remove route entry");
 }
 
@@ -515,7 +520,7 @@ void test_bulk_route_set()
     // if after consume we get pop we get expectd parameters
 
     // Remove route entry
-    status = sai_bulk_remove_route_entry(count, routes.data(), SAI_BULK_OP_TYPE_INGORE_ERROR, statuses.data());
+    status = sai_bulk_remove_route_entry(count, routes.data(), SAI_BULK_OP_ERROR_MODE_IGNORE_ERROR, statuses.data());
     ASSERT_SUCCESS("Failed to bulk remove route entry");
 }
 
