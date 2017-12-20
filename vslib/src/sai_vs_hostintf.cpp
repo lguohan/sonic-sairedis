@@ -194,7 +194,7 @@ void veth2tap_fun(std::shared_ptr<hostif_info_t> info)
 
         if (size < 0)
         {
-            SWSS_LOG_ERROR("failed to read from socket %d", info->packet_socket);
+            SWSS_LOG_ERROR("failed to read from socket %d, errno %d", info->packet_socket, errno);
             break;
         }
 
@@ -202,8 +202,11 @@ void veth2tap_fun(std::shared_ptr<hostif_info_t> info)
 
         if (write(info->tapfd, buffer, size) < 0)
         {
-            SWSS_LOG_ERROR("failed to write to tap device %d", info->tapfd);
-            break;
+            SWSS_LOG_ERROR("failed to write to tap device %d, errno %d", info->tapfd, errno);
+            if (errno != EIO && errno != EAGAIN && errno != EINTR)
+            {
+                break;
+            }
         }
     }
 }
@@ -222,15 +225,18 @@ void tap2veth_fun(std::shared_ptr<hostif_info_t> info)
 
         if (size < 0)
         {
-            SWSS_LOG_ERROR("failed to read from tapfd: %d", info->tapfd);
+            SWSS_LOG_ERROR("failed to read from tapfd: %d, errno %d", info->tapfd, errno);
 
             break;
         }
 
         if (write(info->packet_socket, buffer, (int)size) < 0)
         {
-            SWSS_LOG_ERROR("failed to write to socker %d", info->packet_socket);
-            break;
+            SWSS_LOG_ERROR("failed to write to socket %d, errno %d", info->packet_socket, errno);
+            if (errno != EIO && errno != EAGAIN && errno != EINTR)
+            {
+                break;
+            }
         }
     }
 }
