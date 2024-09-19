@@ -213,6 +213,31 @@ namespace saivpp
             sai_status_t vpp_bfd_session_del(
                     _In_ const std::string &serializedObjectId);
 
+            sai_status_t createLag(
+                    _In_ sai_object_id_t object_id,
+                    _In_ sai_object_id_t switch_id,
+                    _In_ uint32_t attr_count,
+                    _In_ const sai_attribute_t *attr_list);
+            sai_status_t vpp_create_lag(
+                    _In_ sai_object_id_t lag_id,
+                    _In_ uint32_t attr_count,
+                    _In_ const sai_attribute_t *attr_list);
+            sai_status_t removeLag(
+                    _In_ sai_object_id_t lag_oid);
+            sai_status_t vpp_remove_lag(
+                    _In_ sai_object_id_t lag_oid);
+	    sai_status_t createLagMember(
+                    _In_ sai_object_id_t object_id,
+                    _In_ sai_object_id_t switch_id,
+                    _In_ uint32_t attr_count,
+                    _In_ const sai_attribute_t *attr_list);
+	    sai_status_t vpp_create_lag_member(
+                    _In_ uint32_t attr_count,
+                    _In_ const sai_attribute_t *attr_list);
+	    sai_status_t removeLagMember(
+                    _In_ sai_object_id_t lag_member_oid);
+	    sai_status_t vpp_remove_lag_member(
+                    _In_ sai_object_id_t lag_member_oid);
 
         protected:
 
@@ -786,9 +811,9 @@ namespace saivpp
             std::unordered_map<std::string, std::string> lpbHostIfToVppIfMap;
         protected:
             sai_status_t fillNHGrpMember(
-                nexthop_grp_member_t *nxt_grp_member, 
-                sai_object_id_t next_hop_oid, 
-                uint32_t next_hop_weight, 
+                nexthop_grp_member_t *nxt_grp_member,
+                sai_object_id_t next_hop_oid,
+                uint32_t next_hop_weight,
                 uint32_t next_hop_sequence);
 
             sai_status_t IpRouteNexthopGroupEntry(
@@ -808,7 +833,7 @@ namespace saivpp
 
             sai_status_t removeNexthop(
                 _In_ const std::string &serializedObjectId);
-                
+
         protected:
 	    sai_status_t createRouterif(
 		    _In_ sai_object_id_t object_id,
@@ -1069,6 +1094,8 @@ namespace saivpp
 	    void populate_if_mapping();
 	    const char *tap_to_hwif_name(const char *name);
             const char *hwif_to_tap_name(const char *name);
+            uint32_t lag_to_bond_if_idx (const sai_object_id_t lag_id);
+            int remove_lag_to_bond_entry (const sai_object_id_t lag_id);
 
             void vppProcessEvents ();
             void startVppEventsThread();
@@ -1080,6 +1107,7 @@ namespace saivpp
             bool m_run_vpp_events_thread = true;
             bool VppEventsThreadStarted = false;
 	    std::shared_ptr<std::thread> m_vpp_thread;
+	    std::map<sai_object_id_t, uint32_t> m_lag_bond_map;
 
         private:
             static int currentMaxInstance;
@@ -1095,12 +1123,12 @@ namespace saivpp
             std::map<std::string, std::shared_ptr<HostInterfaceInfo>> m_hostif_info_map;
 
             std::shared_ptr<RealObjectIdManager> m_realObjectIdManager;
-            
+
             friend class TunnelManager;
 
         private:
             SaiObjectDB m_object_db;
             TunnelManager m_tunnel_mgr;
-        
+
     };
 }

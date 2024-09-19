@@ -193,7 +193,7 @@ sai_status_t SwitchStateBase::create(
     }
 
     if (object_type == SAI_OBJECT_TYPE_NEXT_HOP)
-    {       
+    {
         return createNexthop(serializedObjectId, switch_id, attr_count, attr_list);
     }
 
@@ -263,6 +263,19 @@ sai_status_t SwitchStateBase::create(
     if (object_type == SAI_OBJECT_TYPE_BFD_SESSION)
     {
        return bfd_session_add(serializedObjectId, switch_id, attr_count, attr_list);
+    }
+
+    if (object_type == SAI_OBJECT_TYPE_LAG )
+    {
+       sai_object_id_t object_id;
+       sai_deserialize_object_id(serializedObjectId, object_id);
+       return createLag(object_id, switch_id, attr_count, attr_list);
+    }
+    if (object_type == SAI_OBJECT_TYPE_LAG_MEMBER)
+    {
+       sai_object_id_t object_id;
+       sai_deserialize_object_id(serializedObjectId, object_id);
+       return createLagMember(object_id, switch_id, attr_count, attr_list);
     }
 
     return create_internal(object_type, serializedObjectId, switch_id, attr_count, attr_list);
@@ -479,7 +492,7 @@ sai_status_t SwitchStateBase::remove(
     {
         return removeIpRoute(serializedObjectId);
     }
-    
+
     if (object_type == SAI_OBJECT_TYPE_NEXT_HOP)
     {
         return removeNexthop(serializedObjectId);
@@ -534,6 +547,18 @@ sai_status_t SwitchStateBase::remove(
         sai_deserialize_object_id(serializedObjectId, objectId);
         return removeVlanMember(objectId);
     }
+    else if (object_type == SAI_OBJECT_TYPE_LAG)
+    {
+        sai_object_id_t objectId;
+        sai_deserialize_object_id(serializedObjectId, objectId);
+        return removeLag(objectId);
+    }
+    else if (object_type == SAI_OBJECT_TYPE_LAG_MEMBER)
+    {
+        sai_object_id_t objectId;
+        sai_deserialize_object_id(serializedObjectId, objectId);
+        return removeLagMember(objectId);
+    }
     else if (object_type == SAI_OBJECT_TYPE_FDB_ENTRY)
     {
         return FdbEntrydel(serializedObjectId);
@@ -553,7 +578,7 @@ sai_status_t SwitchStateBase::remove_internal(
     SWSS_LOG_ENTER();
 
     SWSS_LOG_INFO("removing object: %s", serializedObjectId.c_str());
-    
+
     m_object_db.remove(object_type, serializedObjectId);
 
     auto &objectHash = m_objectHash.at(object_type);
@@ -1106,7 +1131,7 @@ sai_status_t SwitchStateBase::bulkSet(
     return status;
 }
 
-std::shared_ptr<SaiDBObject> 
+std::shared_ptr<SaiDBObject>
 SwitchStateBase::get_sai_object(
                 _In_ sai_object_type_t object_type,
                 _In_ const std::string &serializedObjectId)

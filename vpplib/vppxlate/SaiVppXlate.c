@@ -58,6 +58,9 @@
 #include <vnet/bfd/bfd.api_enum.h>
 #include <vnet/bfd/bfd.api_types.h>
 
+#include <vnet/bonding/bond.api_enum.h>
+#include <vnet/bonding/bond.api_types.h>
+
 /* l2 API inclusion */
 
 #define vl_typedefs
@@ -209,6 +212,28 @@
 #include <vpp_plugins/vxlan/vxlan.api.h>
 #undef vl_api_version
 
+/* BOND API inclusion */
+
+#define vl_typedefs
+#include <vnet/bonding/bond.api.h>
+#undef vl_typedefs
+
+#define  vl_endianfun
+#include <vnet/bonding/bond.api.h>
+#undef vl_endianfun
+
+#define vl_printfun
+#include <vnet/bonding/bond.api.h>
+#undef vl_printfun
+
+#define vl_calcsizefun
+#include <vnet/bonding/bond.api.h>
+#undef vl_calcsizefun
+
+#define vl_api_version(n, v) static u32 bond_api_version = v;
+#include <vnet/bonding/bond.api.h>
+#undef vl_api_version
+
 /* memclnt API inclusion */
 
 #define vl_typedefs /* define message structures */
@@ -267,10 +292,10 @@ void os_exit(int code) {}
 
 /**
  * Wait for result and retry if necessary. The retry is necessary because there could be unsolicited
- * events causing vl_socket_client_read to return before the expected result is received. If 
+ * events causing vl_socket_client_read to return before the expected result is received. If
  * vam->result_ready is not set, which should be set when API callback function is called, then
  * it means we get some unsolicited events and we need to retry.
- */ 
+ */
 #define WR(ret)                                                 \
 do {                                                            \
     f64 timeout = vat_time_now (vam) + 1.0;                     \
@@ -510,7 +535,7 @@ vl_api_sw_interface_event_t_handler (vl_api_sw_interface_event_t *mp)
     } else {
 	link_up = false;
     }
-    SAIVPP_WARN("Sending vpp link %s event for interface %s index %u", 
+    SAIVPP_WARN("Sending vpp link %s event for interface %s index %u",
 		link_up ? "UP" : "DOWN", hw_ifname, sw_if_index);
 
     vpp_event_info_t *evinfo;
@@ -816,6 +841,50 @@ vl_api_vxlan_add_del_tunnel_v3_reply_t_handler (
     SAIVPP_DEBUG("vxlan_add_del handler: if_idx,%d,status,%d",vam->sw_if_index, vam->retval);
 }
 
+static void
+vl_api_bond_create_reply_t_handler (vl_api_bond_create_reply_t *msg)
+{
+    set_reply_status(ntohl(msg->retval));
+
+    if (msg->context) {
+      u32 *swif_idx = (u32 *) get_index_ptr(msg->context);
+      *swif_idx = ntohl(msg->sw_if_index);
+    }
+
+    SAIVPP_WARN("bond add %s(%d)", msg->retval ? "failed" : "successful", msg->retval);
+    if (!msg->retval)
+    {
+        uint32_t bond_if_index =  ntohl(msg->sw_if_index);
+        SAIVPP_WARN("created bond if index%d", bond_if_index);
+    }
+    //SAIVPP_ERROR("l2 add del reply handler called %s(%d)",msg->retval ? "failed" : "successful", msg->retval);
+
+}
+
+static void
+vl_api_bond_delete_reply_t_handler (vl_api_bond_delete_reply_t *msg)
+{
+    set_reply_status(ntohl(msg->retval));
+
+    SAIVPP_WARN("bond delete %s(%d)", msg->retval ? "failed" : "successful", msg->retval);
+}
+
+static void
+vl_api_bond_add_member_reply_t_handler (vl_api_bond_add_member_reply_t *msg)
+{
+    set_reply_status(ntohl(msg->retval));
+
+    SAIVPP_WARN("bond add member %s(%d)", msg->retval ? "failed" : "successful", msg->retval);
+}
+
+static void
+vl_api_bond_detach_member_reply_t_handler (vl_api_bond_detach_member_reply_t *msg)
+{
+    set_reply_status(ntohl(msg->retval));
+
+    SAIVPP_WARN("bond detach member %s(%d)", msg->retval ? "failed" : "successful", msg->retval);
+}
+
 #define vl_api_get_first_msg_id_reply_t_handler vl_noop_handler
 #define vl_api_get_first_msg_id_reply_t_handler_json vl_noop_handler
 
@@ -828,6 +897,7 @@ vl_api_vxlan_add_del_tunnel_v3_reply_t_handler (
 static u16 interface_msg_id_base, memclnt_msg_id_base, __plugin_msg_base;
 static u16 l2_msg_id_base, vxlan_msg_id_base;
 static u16 bfd_msg_id_base;
+static u16 bond_msg_id_base;
 
 static void vpp_base_vpe_init(void)
 {
@@ -861,6 +931,10 @@ static void vpp_base_vpe_init(void)
 #define BFD_MSG_ID(id) \
     (VL_API_##id + bfd_msg_id_base)
 
+#define BOND_MSG_ID(id) \
+    (VL_API_##id + bond_msg_id_base)
+
+
 #define foreach_vpe_ext_api_reply_msg                                   \
     _(INTERFACE_MSG_ID(SW_INTERFACE_DETAILS), sw_interface_details)     \
     _(INTERFACE_MSG_ID(CREATE_LOOPBACK_INSTANCE_REPLY), create_loopback_instance_reply) \
@@ -871,7 +945,7 @@ static void vpp_base_vpe_init(void)
     _(INTERFACE_MSG_ID(SW_INTERFACE_ADD_DEL_ADDRESS_REPLY), sw_interface_add_del_address_reply) \
     _(INTERFACE_MSG_ID(SW_INTERFACE_SET_FLAGS_REPLY), sw_interface_set_flags_reply) \
     _(INTERFACE_MSG_ID(SW_INTERFACE_SET_MTU_REPLY), sw_interface_set_mtu_reply) \
-    _(INTERFACE_MSG_ID(SW_INTERFACE_SET_MAC_ADDRESS_REPLY), sw_interface_set_mac_address_reply) \ 
+    _(INTERFACE_MSG_ID(SW_INTERFACE_SET_MAC_ADDRESS_REPLY), sw_interface_set_mac_address_reply) \
     _(INTERFACE_MSG_ID(HW_INTERFACE_SET_MTU_REPLY), hw_interface_set_mtu_reply) \
     _(INTERFACE_MSG_ID(WANT_INTERFACE_EVENTS), want_interface_events_reply) \
     _(INTERFACE_MSG_ID(SW_INTERFACE_EVENT), sw_interface_event) \
@@ -892,6 +966,10 @@ static void vpp_base_vpe_init(void)
     _(L2_MSG_ID(L2FIB_FLUSH_BD_REPLY), l2fib_flush_bd_reply) \
     _(BFD_MSG_ID(BFD_UDP_ADD_REPLY), bfd_udp_add_reply) \
     _(BFD_MSG_ID(BFD_UDP_DEL_REPLY), bfd_udp_del_reply) \
+    _(BOND_MSG_ID(BOND_CREATE_REPLY), bond_create_reply) \
+    _(BOND_MSG_ID(BOND_DELETE_REPLY), bond_delete_reply) \
+    _(BOND_MSG_ID(BOND_ADD_MEMBER_REPLY), bond_add_member_reply) \
+    _(BOND_MSG_ID(BOND_DETACH_MEMBER_REPLY), bond_detach_member_reply)
 
 static u16 interface_msg_id_base, ip_msg_id_base, ip_nbr_msg_id_base, lcp_msg_id_base, memclnt_msg_id_base, __plugin_msg_base;
 static u16 acl_msg_id_base;
@@ -1020,6 +1098,11 @@ static void get_base_msg_id()
     msg_base_lookup_name = format (0, "bfd_%08x%c", bfd_api_version, 0);
     bfd_msg_id_base = vl_client_get_first_plugin_msg_id ((char *) msg_base_lookup_name);
     assert(bfd_msg_id_base != (u16) ~0);
+
+    msg_base_lookup_name = format (0, "bond_%08x%c", bond_api_version, 0);
+    bond_msg_id_base = vl_client_get_first_plugin_msg_id ((char *) msg_base_lookup_name);
+    SAIVPP_WARN("BALA: bond_msg_id_base is %d",bond_msg_id_base);
+    assert(bond_msg_id_base != (u16) ~0);
 
     memclnt_msg_id_base = 0;
 
@@ -1170,6 +1253,20 @@ static u32 get_swif_idx (vat_main_t *vam, const char *ifname)
                 if (strcmp((char *) name, ifname) == 0) return value;
             }));
     return ((u32) -1);
+}
+
+static const char * get_swif_name (vat_main_t *vam, const u32 swif_idx)
+{
+    hash_pair_t *p;
+    u8 *name;
+    u32 value;
+
+    hash_foreach_pair (p, vam->sw_if_index_by_interface_name, ({
+                name = (u8 *) (p->key);
+                value = (u32) p->value[0];
+                if (value == swif_idx) return name;
+            }));
+    return NULL;
 }
 
 static int config_lcp_hostif (vat_main_t *vam,
@@ -1328,7 +1425,7 @@ static __thread int vpp_client_init;
 int init_vpp_client()
 {
     if (vpp_client_init) return 0;
-    
+
     vat_main_t *vam = &vat_main;
 
     vpp_mutex_lock_init();
@@ -1343,7 +1440,7 @@ int init_vpp_client()
     vam->socket_name = format (0, "%s%c", API_SOCKET_FILE, 0);
     vam->sw_if_index_by_interface_name = hash_create_string (0, sizeof (uword));
     interface_name_by_sw_index = hash_create (0, sizeof (uword));
-    
+
     if (vsc_socket_connect(vam, "sonic_vpp_api_client") == 0) {
         int rc;
 
@@ -1360,7 +1457,7 @@ int init_vpp_client()
 
 	vpp_acl_counters_enable_disable(true);
 
-	/* 
+	/*
 	 * SONiC periodically polls the port status so currently there is no need for
 	 * async notification. This also simplifies the synchronous design of saivpp.
 	 * Revisit the async mechanism if there is greater reason.
@@ -1394,7 +1491,7 @@ int configure_lcp_interface (const char *hwif_name, const char *hostif_name, boo
 {
     u32 idx;
     vat_main_t *vam = &vat_main;
-    
+
     idx = get_swif_idx(vam, hwif_name);
     SAIVPP_DEBUG("swif index of interface %s is %u\n", hwif_name, idx);
 
@@ -1417,7 +1514,7 @@ int create_sub_interface (const char *hwif_name, u32 sub_id, u16 vlan_id)
 {
     u32 idx;
     vat_main_t *vam = &vat_main;
-    
+
     idx = get_swif_idx(vam, hwif_name);
     SAIVPP_DEBUG("swif index of interface %s is %u\n", hwif_name, idx);
 
@@ -1550,9 +1647,9 @@ static int __ip_nbr_add_del (vat_main_t *vam, vl_api_address_t *nbr_addr, u32 if
     mp->neighbor.flags = IP_API_NEIGHBOR_FLAG_NONE;
     if (is_static) {
         mp->neighbor.flags |= IP_API_NEIGHBOR_FLAG_STATIC;
-    }   
+    }
     if (no_fib_entry) {
-        mp->neighbor.flags |= IP_API_NEIGHBOR_FLAG_NO_FIB_ENTRY;        
+        mp->neighbor.flags |= IP_API_NEIGHBOR_FLAG_NO_FIB_ENTRY;
     }
     mp->neighbor.sw_if_index = htonl(if_idx);
     mp->neighbor.ip_address = *nbr_addr;
@@ -1585,8 +1682,8 @@ static int ip_nbr_add_del (const char *hwif_name, uint32_t sw_if_index, struct s
     }
     if (sw_if_index == ~0) {
         sw_if_index = get_swif_idx(vam, hwif_name);
-    } 
-    
+    }
+
 
     return __ip_nbr_add_del(vam, &api_addr, sw_if_index, mac, is_static, no_fib_entry, is_add);
 }
@@ -2155,7 +2252,7 @@ int sw_interface_set_mac (const char *hwif_name, uint8_t *mac_address)
     __plugin_msg_base = interface_msg_id_base;
 
     M (SW_INTERFACE_SET_MAC_ADDRESS, mp);
-    
+
     if (hwif_name) {
         u32 idx;
         idx = get_swif_idx(vam, hwif_name);
@@ -2171,7 +2268,7 @@ int sw_interface_set_mac (const char *hwif_name, uint8_t *mac_address)
         VPP_UNLOCK();
         return -EINVAL;
     }
-    
+
     if (mac_address == NULL) {
         SAIVPP_ERROR("mac address can't be NULL");
         VPP_UNLOCK();
@@ -2527,7 +2624,7 @@ int vpp_vxlan_tunnel_add_del(vpp_vxlan_tunnel_t *tunnel, bool is_add, u32 *sw_if
     mp->decap_next_index = htonl(tunnel->decap_next_index);
 
     S (mp);
-    WR (ret); 
+    WR (ret);
     //reply handler needs to set vam->sw_if_index from reply msg
     *sw_if_index = vam->sw_if_index;
     SAIVPP_DEBUG("vxlan_add_del done: if_idx,%d",vam->sw_if_index);
@@ -2574,24 +2671,24 @@ int l2fib_add_del(const char *hwif_name, const uint8_t *mac, uint32_t bd_id, boo
         u32 idx;
 
         idx = get_swif_idx(vam, hwif_name);
-        if (idx != (u32) -1) 
+        if (idx != (u32) -1)
         {
             mp->sw_if_index = htonl(idx);
-        } 
-        else 
+        }
+        else
         {
             SAIVPP_ERROR("Unable to get sw_index for %s\n", hwif_name);
             VPP_UNLOCK();
             return -EINVAL;
         }
-    } 
+    }
     else
     {
         VPP_UNLOCK();
         return -EINVAL;
     }
 
-    if (bd_id == 0 || bd_id == ~0) 
+    if (bd_id == 0 || bd_id == ~0)
     {
         SAIVPP_ERROR("Invalid bridge id for add/del\n");
         VPP_UNLOCK();
@@ -2656,7 +2753,7 @@ int l2fib_flush_int(const char *hwif_name)
         {
             mp->sw_if_index = htonl(idx);
         }
-        else 
+        else
         {
             SAIVPP_ERROR("Unable to get sw_index for %s\n", hwif_name);
             VPP_UNLOCK();
@@ -2691,7 +2788,7 @@ int l2fib_flush_bd(uint32_t bd_id)
 
     M (L2FIB_FLUSH_BD, mp);
 
-    if (bd_id == 0 || bd_id == ~0) 
+    if (bd_id == 0 || bd_id == ~0)
     {
         SAIVPP_ERROR("Invalid bridge id for Flush FDB Entry\n");
         VPP_UNLOCK();
@@ -2844,6 +2941,165 @@ int bfd_udp_del(const char *hwif_name, vpp_ip_addr_t *local_addr, vpp_ip_addr_t 
 
     mp->local_addr = vpp_local_addr;
     mp->peer_addr = vpp_peer_addr;
+
+    S (mp);
+
+    W (ret);
+
+    VPP_UNLOCK();
+
+    return ret;
+}
+
+int create_bond_interface(uint32_t bond_id, uint32_t mode, uint32_t lb, uint32_t  *swif_idx)
+{
+    vat_main_t *vam = &vat_main;
+    vl_api_bond_create_t * mp;
+    int ret;
+
+
+    SAIVPP_WARN("Creating bd interface: \n");
+    VPP_LOCK();
+
+    __plugin_msg_base = bond_msg_id_base;
+
+    M (BOND_CREATE, mp);
+
+    mp->id = htonl(bond_id);
+    mp->mode = htonl(mode);
+    mp->lb = htonl(lb);
+    mp->numa_only = false;
+    mp->use_custom_mac = false;
+    mp->context = store_ptr(swif_idx);
+
+    S (mp);
+
+    W (ret);
+
+    VPP_UNLOCK();
+
+    return ret;
+}
+
+int delete_bond_interface(const char *hwif_name)
+{
+    vat_main_t *vam = &vat_main;
+    vl_api_bond_delete_t * mp;
+    int ret;
+
+
+    SAIVPP_WARN("Removing bond interface: \n");
+    VPP_LOCK();
+
+    __plugin_msg_base = bond_msg_id_base;
+
+
+    M (BOND_DELETE, mp);
+
+    if (hwif_name) {
+	u32 idx;
+
+	idx = get_swif_idx(vam, hwif_name);
+	if (idx != (u32) -1) {
+	    mp->sw_if_index = htonl(idx);
+	} else {
+	    SAIVPP_ERROR("Unable to get sw_index for %s\n", hwif_name);
+	    VPP_UNLOCK();
+	    return -EINVAL;
+	}
+    } else {
+	VPP_UNLOCK();
+	return -EINVAL;
+    }
+
+
+    W (ret);
+
+    VPP_UNLOCK();
+
+    return ret;
+}
+
+
+int create_bond_member(uint32_t bond_sw_if_index, const char *hwif_name, bool is_passive, bool is_long_timeout)
+{
+    vat_main_t *vam = &vat_main;
+    vl_api_bond_add_member_t * mp;
+    int ret;
+
+
+    SAIVPP_WARN("Adding member to bond interface: \n");
+    VPP_LOCK();
+
+    __plugin_msg_base = bond_msg_id_base;
+
+
+    M (BOND_ADD_MEMBER, mp);
+
+    if (hwif_name) {
+        u32 idx;
+
+        idx = get_swif_idx(vam, hwif_name);
+        if (idx != (u32) -1) {
+            mp->sw_if_index = htonl(idx);
+        } else {
+            SAIVPP_ERROR("Unable to get sw_index for %s\n", hwif_name);
+            VPP_UNLOCK();
+            return -EINVAL;
+        }
+    } else {
+        VPP_UNLOCK();
+        return -EINVAL;
+    }
+    mp->bond_sw_if_index = htonl(bond_sw_if_index);
+    mp->is_passive = is_passive;
+    mp->is_long_timeout = is_long_timeout;
+
+    S (mp);
+
+    W (ret);
+
+    VPP_UNLOCK();
+
+    return ret;
+}
+
+const char * vpp_get_swif_name (const u32 swif_idx)
+{
+    vat_main_t *vam = &vat_main;
+    return get_swif_name(vam, swif_idx);
+}
+
+
+int delete_bond_member(const char * hwif_name)
+{
+    vat_main_t *vam = &vat_main;
+    vl_api_bond_detach_member_t *mp;
+    __plugin_msg_base = bond_msg_id_base;
+    int ret;
+
+    VPP_LOCK();
+
+    __plugin_msg_base = bfd_msg_id_base;
+
+
+    M (BOND_DETACH_MEMBER, mp);
+
+    if (hwif_name) {
+	u32 idx;
+
+	idx = get_swif_idx(vam, hwif_name);
+	if (idx != (u32) -1) {
+	    mp->sw_if_index = htonl(idx);
+	} else {
+	    SAIVPP_ERROR("Unable to get sw_index for %s\n", hwif_name);
+	    VPP_UNLOCK();
+	    return -EINVAL;
+	}
+    } else {
+	VPP_UNLOCK();
+	return -EINVAL;
+    }
 
     S (mp);
 
